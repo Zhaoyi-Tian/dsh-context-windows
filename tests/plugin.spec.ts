@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import Schema from '@deepseek-ai/schemastery'
 import * as ContextWindows from '../dist/index.js'
+import { requestTokens } from '../src/window/budget.ts'
 import { harness, send, textResponse, toolCallResponse, requestText } from './window/harness.ts'
 
 it('keeps the serialized settings schema usable without module-local callbacks', () => {
@@ -19,7 +20,7 @@ it('preserves explicit null settings through the built plugin schema', async () 
     await fiber.dispose()
     await ctx.plugin(ContextWindows, { contextTokens: null, prompts: { fallback: null } })
     await send(agent, 'Start an uncapped window without a fallback buffer.')
-    const total = ctx.tokenMeter.measure(agent.session).totalTokens
+    const total = requestTokens(ctx, agent.session)
     const result = await ctx.tools.execute({
       agent, signal: new AbortController().signal, callId: ToolCallId('budget'),
       name: 'get_context_remaining', arguments: {},
