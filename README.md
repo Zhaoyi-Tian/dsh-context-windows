@@ -17,7 +17,7 @@
 需要 dsh（已在 `0.2.1-alpha.2` 上验证）。从 GitHub Release 直接安装：
 
 ```sh
-dsh plugin --profile web add https://github.com/Zhaoyi-Tian/dsh-context-windows/releases/download/v0.1.0/dsh-context-windows-0.1.0.tgz
+dsh plugin --profile web add https://github.com/Zhaoyi-Tian/dsh-context-windows/releases/download/v0.1.1/dsh-context-windows-0.1.1.tgz
 ```
 
 装好后重启对应 profile：
