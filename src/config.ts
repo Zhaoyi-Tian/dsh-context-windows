@@ -9,7 +9,7 @@ export const Config = z.object({
   contextTokens: z.union([integer(1), z.const(null)]),
   reminderThresholdTokens: integer(0).default(6144),
   fallbackBufferTokens: integer(0).default(16384),
-  maxFileBytes: integer(1).default(16384),
+  maxFileBytes: integer(1).default(1_000_000),
   prompts: z.object({
     guidance: z.string().default(GUIDANCE),
     reminder: z.string().default(REMINDER),

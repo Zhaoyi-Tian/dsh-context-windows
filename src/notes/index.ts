@@ -2,6 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { appendPluginRecord } from '@deepseek-ai/dsh-session'
+import { compileSessionTextFilter } from '@deepseek-ai/dsh-session-query'
 import { defineTool, type ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-session-projection'
@@ -28,14 +29,13 @@ export function registerNotes(ctx: Context, maxFileBytes: number): void {
     const session = sessionFor(exec)
     const path = normalizeNotePath(pathInput)
     const state = notesState(ctx, session)
-    const previous = Object.hasOwn(state.files, path) ? state.files[path].text : ''
-    const content = (append ? previous : '') + text
-    const bytes = Buffer.byteLength(content, 'utf8')
+    const previous = append && Object.hasOwn(state.files, path) ? state.files[path].bytes : 0
+    const bytes = previous + Buffer.byteLength(text, 'utf8')
     if (bytes > maxFileBytes) {
       throw new HarnessError(`Note ${path} would contain ${bytes} UTF-8 bytes; maximum is ${maxFileBytes}. `
         + 'Shorten it or create another file; the note was not changed.', 'NOTE_TOO_LARGE')
     }
-    appendPluginRecord(session, 'plugin:history-notes/file', { version: 1, path, text: content })
+    appendPluginRecord(session, append ? 'plugin:history-notes/append' : 'plugin:history-notes/file', { version: 1, path, text })
     const file = ctx.sessionProjections.stateOf(session, 'historyNotes')!.files[path]!
     return `Saved ${path} (${file.lines} lines, ${file.bytes} UTF-8 bytes).`
   }
@@ -78,7 +78,7 @@ export function registerNotes(ctx: Context, maxFileBytes: number): void {
   }))
   ctx.tools.register(defineTool({
     name: 'notes_search_contents',
-    description: 'Search note lines by case-sensitive literal substring.' + NOTE_SCOPE,
+    description: 'Search note lines using DSH’s case-insensitive, whitespace-flexible literal matching.' + NOTE_SCOPE,
     parameters: {
       query: { type: 'string', required: true },
       max_matches_per_file: { type: 'integer', description: 'Maximum matching lines per file; default 5.' },
@@ -91,11 +91,12 @@ export function registerNotes(ctx: Context, maxFileBytes: number): void {
     async execute(args, exec) {
       const maxFiles = countArg(args.max_files, 50, 'max_files')
       const maxMatches = countArg(args.max_matches_per_file, 5, 'max_matches_per_file')
+      const pattern = compileSessionTextFilter(args.query)
       const matches: string[][] = []
       for (const [path, file] of sortedFiles(notesState(ctx, sessionFor(exec)), args.path_prefix,
         args.recent_file_first ? 'updated_at' : 'name', args.recent_file_first)) {
         if (matches.length >= maxFiles) break
-        const lines = file.text.split('\n').flatMap((text, i) => text.includes(args.query) ? [`${path}:${i + 1}: ${text}`] : [])
+        const lines = file.text.split('\n').flatMap((text, i) => pattern.test(text) ? [`${path}:${i + 1}: ${text}`] : [])
           .slice(0, maxMatches)
         if (lines.length > 0) matches.push(lines)
       }

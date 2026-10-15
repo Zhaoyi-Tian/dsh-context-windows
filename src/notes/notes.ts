@@ -67,21 +67,26 @@ export const notesStateSchema = z.object({
 
 export type NotesState = z.infer<typeof notesStateSchema>
 
+/** A write record holds the complete file; an append record holds only the appended text. */
 declare module '@deepseek-ai/dsh-session/types' {
-  interface PluginRecordMap { 'plugin:history-notes/file': z.infer<typeof recordSchema> }
+  interface PluginRecordMap {
+    'plugin:history-notes/file': z.infer<typeof recordSchema>
+    'plugin:history-notes/append': z.infer<typeof recordSchema>
+  }
 }
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap { historyNotes: NotesState }
 }
 
-/** Fold complete file records; malformed records become a visible failed state. */
+/** Fold write and append records; malformed records become a visible failed state. */
 export function foldNotes(state: NotesState, event: SessionEvent): NotesState {
   const record = pluginRecordOf(event)
-  if (record?.type !== 'plugin:history-notes/file') return state
+  if (record?.type !== 'plugin:history-notes/file' && record?.type !== 'plugin:history-notes/append') return state
   const parsed = recordSchema.safeParse(record.data)
   if (!parsed.success) return { ...state, failure: `Invalid note record at #${event.seq}; inspect the session log before using notes.` }
-  const { path, text } = parsed.data
+  const { path } = parsed.data
   const previous = Object.hasOwn(state.files, path) ? state.files[path] : undefined
+  const text = record.type === 'plugin:history-notes/append' ? (previous?.text ?? '') + parsed.data.text : parsed.data.text
   return {
     ...state,
     files: {

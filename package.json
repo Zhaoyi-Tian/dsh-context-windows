@@ -1,6 +1,6 @@
 {
   "name": "dsh-context-windows",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Context windows, checkpoint notes, and session history recovery for DeepSeek Harness.",
   "type": "module",
   "license": "MIT",

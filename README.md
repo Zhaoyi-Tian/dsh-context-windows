@@ -17,7 +17,7 @@
 需要 dsh（已在 `0.2.1-alpha.2` 上验证）。从 GitHub Release 直接安装：
 
 ```sh
-dsh plugin --profile web add https://github.com/Zhaoyi-Tian/dsh-context-windows/releases/download/v0.1.1/dsh-context-windows-0.1.1.tgz
+dsh plugin --profile web add https://github.com/Zhaoyi-Tian/dsh-context-windows/releases/download/v0.1.2/dsh-context-windows-0.1.2.tgz
 ```
 
 装好后重启对应 profile：
@@ -43,7 +43,7 @@ dsh plugin --profile web remove dsh-context-windows
     contextTokens: 81920
     reminderThresholdTokens: 6144
     fallbackBufferTokens: 16384
-    maxFileBytes: 16384
+    maxFileBytes: 1000000
 ```
 
 | 配置 | 默认值 | 含义 |
@@ -51,7 +51,7 @@ dsh plugin --profile web remove dsh-context-windows
 | `contextTokens` | 81920 | 硬上限，实际取它和「模型窗口减输出预留」中的较小值；`null` 表示只按模型窗口。默认值偏小，日常使用可以开大一些 |
 | `reminderThresholdTokens` | 6144 | 剩余预算低于此值时提醒一次 |
 | `fallbackBufferTokens` | 16384 | 预算用完后留给模型保存检查点的缓冲 |
-| `maxFileBytes` | 16384 | 单个笔记的字节上限 |
+| `maxFileBytes` | 1000000 | 单个笔记的字节上限，与 Codex 相同 |
 
 `prompts.guidance`、`prompts.reminder`、`prompts.fallback` 可以替换默认提示，其中 `{n_remaining}` 会替换为剩余预算；`fallback: null` 关闭兜底提示和缓冲。
 

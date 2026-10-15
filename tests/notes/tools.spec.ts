@@ -68,7 +68,9 @@ describe('virtual notes', () => {
       expect(listed.text.split('\n')[0]).toContain('work/a.md')
       expect((await call('notes_read_file', { path: 'work/b.md', start_line: -2, stop_line: -1 })).text).toContain('needle\nlast')
       expect((await call('notes_search_contents', { query: 'needle', max_files: 1, recent_file_first: true })).text).toBe('work/a.md:1: needle two')
-      expect((await call('notes_search_contents', { query: 'Needle' })).text).toBe('No matching note lines.')
+      // Same matching as history search: case-insensitive, any whitespace run matches.
+      expect((await call('notes_search_contents', { query: 'NEEDLE   two' })).text).toBe('work/a.md:1: needle two')
+      expect((await call('notes_search_contents', { query: 'needletwo' })).text).toBe('No matching note lines.')
       expect((await call('notes_read_file', { path: 'absent' })).isError).toBe(true)
       expect((await call('notes_list_files_by_prefix', { prefix: 'missing/' })).text).toBe('No notes.')
       expect((await call('notes_write_file', { path: 'toString', text: 'ordinary note' })).isError).not.toBe(true)
@@ -104,17 +106,35 @@ describe('virtual notes', () => {
     } finally { await ctx.fiber.dispose() }
   })
 
-  it('uses the default 16384-byte cap on plugin activation', async () => {
+  it('logs only the appended text and rebuilds appends after earlier writes', async () => {
+    const { ctx, agent, call } = await setup()
+    try {
+      await call('notes_write_file', { path: 'log', text: 'base\n' })
+      await call('notes_append_to_file', { path: 'log', text: 'one\n' })
+      await call('notes_append_to_file', { path: 'fresh', text: 'created by append' })
+      const records = agent.session.snapshotEvents().filter(event => (event.type as string).startsWith('plugin:history-notes/'))
+      expect(records.map(event => [event.type, (event.data as { text: string }).text])).toEqual([
+        ['plugin:history-notes/file', 'base\n'],
+        ['plugin:history-notes/append', 'one\n'],
+        ['plugin:history-notes/append', 'created by append'],
+      ])
+      const resumed = Session.create(SessionId('resumed-appends'), agent.session.snapshotEvents())
+      expect(ctx.sessionProjections.stateOf(resumed, 'historyNotes')?.files.log?.text).toBe('base\none\n')
+      expect((await call('notes_read_file', { path: 'fresh' })).text).toContain('created by append')
+    } finally { await ctx.fiber.dispose() }
+  })
+
+  it('uses the default 1,000,000-byte cap on plugin activation', async () => {
     const { ctx, agent, notesFiber, call } = await setup()
     try {
       await notesFiber.dispose()
       await ctx.plugin(ContextWindows)
-      const text = 'x'.repeat(16384)
+      const text = 'x'.repeat(1_000_000)
       expect((await call('notes_write_file', { path: 'exact-cap', text })).isError).not.toBe(true)
       const before = agent.session.seq
       const rejected = await call('notes_append_to_file', { path: 'exact-cap', text: 'x' })
       expect(rejected.isError).toBe(true)
-      expect(rejected.text).toContain('maximum is 16384')
+      expect(rejected.text).toContain('maximum is 1000000')
       expect(agent.session.seq).toBe(before)
       expect(ctx.sessionProjections.stateOf(agent.session, 'historyNotes')?.files['exact-cap']?.text).toBe(text)
     } finally { await ctx.fiber.dispose() }
