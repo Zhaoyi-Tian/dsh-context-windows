@@ -6,7 +6,7 @@
 
 ## 工作方式
 
-- **窗口**：模型可以用 `get_context_remaining` 查剩余预算，用 `new_context` 主动开新窗口。快满时插件提醒一次；预算用完时，要求模型先保存检查点再切换；到硬上限时强制切换。切换保留系统提示和环境信息，不调用模型做摘要。
+- **窗口**：模型可以用 `get_context_remaining` 查剩余预算，用 `new_context` 主动开新窗口。快满时插件提醒一次；预算用完时，要求模型先保存检查点再切换；到硬上限时强制切换。切换保留系统提示和环境信息，不调用模型做摘要。用量以服务商返回的实际 usage 为准，只对之后新增、尚未发送的内容做估算。到硬上限被强制切换时，新窗口会提示上一个窗口被切断、检查点可能过时，并给出该窗口的条目范围。
 - **笔记**：会话内的虚拟文件，跨窗口保留。提供 `notes_list_files_by_prefix`、`notes_read_file`、`notes_search_contents`、`notes_append_to_file`、`notes_write_file` 五个工具。
 - **历史**：只读查询本会话的原始事件。提供 `history_list_windows`、`history_list_items`、`history_search_contents`、`history_read_item` 四个工具。
 - **条目编号**：与 Codex 相同，每个非助手条目（用户消息、工具结果等）在发给模型时，末尾带一个 `[id: #N]`。模型把编号记进笔记，换窗后用 `history_read_item({ seq: N })` 精确读回原文。编号只出现在发给模型的内容里，不写入会话日志。

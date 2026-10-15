@@ -20,8 +20,8 @@ export const FALLBACK = `<context_window_reminder>
 The current context window is exhausted. Do not continue the task or give a final answer in this window. The next window will not automatically include this conversation. Make exactly one successful \`notes_write_file\` or \`notes_append_to_file\` call now to save a concise checkpoint with the goal, decisions, progress, learnings, next steps, and the item ID of every relevant user request still being solved, as well as important actions/tool calls for future reference. ${ITEM_IDS} If the write fails, correct it and retry. After the notes result returns, call \`new_context\`; do not use any tools other than the notes tools and \`new_context\`.
 </context_window_reminder>`
 
-/** Render window identities and at most 4000 UTF-8 bytes of complete hint lines. */
-export function windowBlock(ids: readonly string[], lines: readonly string[]): string {
+/** Render window identities, an optional cut-off notice, and at most 4000 UTF-8 bytes of complete hint lines. */
+export function windowBlock(ids: readonly string[], lines: readonly string[], notice?: string): string {
   const hints: string[] = []
   for (const line of lines) {
     if (Buffer.byteLength([...hints, line].join('\n'), 'utf8') > 4000) break
@@ -32,6 +32,7 @@ export function windowBlock(ids: readonly string[], lines: readonly string[]): s
     `First context window id: ${ids[0]}`,
     `Current context window id: ${ids.at(-1)}`,
     ...(ids.length > 1 ? [`Previous context window id: ${ids.at(-2)}`] : []),
+    ...(notice === undefined ? [] : [notice]),
     ...hints,
     '</context_window>',
   ].join('\n')

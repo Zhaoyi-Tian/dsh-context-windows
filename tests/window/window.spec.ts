@@ -44,7 +44,7 @@ describe('window state and replacement', () => {
       const head = session.append('system/message', { turn: 1, step: 1, message: createSystemMessage('keep system') }, { surfaceOp: 'append' })
       session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'old user text' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
       const originalTokens = ctx.tokenMeter.measure(session).totalTokens
-      const result = resetWindow(ctx, session, resolveConfig({}), new AbortController().signal)
+      const result = resetWindow(ctx, session, resolveConfig({}), 'requested', new AbortController().signal)
       expect(result?.windowId).toBe('w1')
       expect(session.surface.nodes).toEqual([head.seq, result?.seq])
       expect(session.deriveMessages().some(message => message.content.some(block => block.type === 'text' && block.text.includes('old user text')))).toBe(false)
@@ -102,7 +102,7 @@ describe('window state and replacement', () => {
         message: createMessage({ role: 'assistant', content: [{ type: 'tool-call', id: ToolCallId('pending'), name: 'work', arguments: '{}' }], source: { kind: 'model', provider: 'mock', model: 'mock' } }),
       }, { surfaceOp: 'append' })
       const before = agent.session.seq
-      expect(() => resetWindow(ctx, agent.session, resolveConfig({}), new AbortController().signal)).toThrow(/unanswered tool calls/)
+      expect(() => resetWindow(ctx, agent.session, resolveConfig({}), 'requested', new AbortController().signal)).toThrow(/unanswered tool calls/)
       expect(agent.session.seq).toBe(before)
       expect(fold(agent.session).windows).toHaveLength(1)
     } finally { await ctx.fiber.dispose() }
@@ -112,7 +112,7 @@ describe('window state and replacement', () => {
     const { ctx, agent } = await harness([])
     try {
       const before = agent.session.seq
-      expect(resetWindow(ctx, agent.session, resolveConfig({}), new AbortController().signal)).toBeNull()
+      expect(resetWindow(ctx, agent.session, resolveConfig({}), 'requested', new AbortController().signal)).toBeNull()
       expect(agent.session.seq).toBe(before)
     } finally { await ctx.fiber.dispose() }
   })
@@ -138,7 +138,7 @@ describe('window state and replacement', () => {
       expect(agent.session.surface.nodes).toEqual([cleared.seq])
       expect(windowState(ctx, agent.session).conversationItems).toBe(1)
       const before = agent.session.seq
-      expect(resetWindow(ctx, agent.session, resolveConfig({}), new AbortController().signal)).toBeNull()
+      expect(resetWindow(ctx, agent.session, resolveConfig({}), 'requested', new AbortController().signal)).toBeNull()
       expect(agent.session.seq).toBe(before)
     } finally { await ctx.fiber.dispose() }
   })
@@ -148,7 +148,7 @@ describe('window state and replacement', () => {
     try {
       const initial = fold(agent.session).windows[0]!.id
       agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'old conversation' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
-      resetWindow(ctx, agent.session, resolveConfig({}), new AbortController().signal)
+      resetWindow(ctx, agent.session, resolveConfig({}), 'requested', new AbortController().signal)
       const before = fold(agent.session)
       for (const event of ['reminder', 'fallback'] as const) {
         agent.session.append('user/message', createUserMessage({

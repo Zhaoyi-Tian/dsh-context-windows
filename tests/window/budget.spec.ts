@@ -26,10 +26,12 @@ describe('working budget', () => {
   ])('rejects an invalid setting before registration: %j', (input) => {
     expect(() => resolveConfig(input)).toThrow()
   })
-  it('reports capacity, output and buffer values when there is no positive budget', () => {
-    for (const [window, reserve] of [[10000, 10000], [10000, -1], [10000, 0]]) {
-      expect(() => resolveBudget(resolveConfig({}), window!, reserve!, 0)).toThrow(/no working budget/)
-    }
+  it('names the fix when there is no positive working budget', () => {
+    // A shrunk model window cannot hold the output reserve.
+    expect(() => resolveBudget(resolveConfig({}), 81920, 256000, 0)).toThrow(/lower that model's maxTokens instead of shrinking its contextWindow/)
+    expect(() => resolveBudget(resolveConfig({}), 10000, 10000, 0)).toThrow(/lower that model's maxTokens/)
+    // The configured cap leaves nothing beyond the fallback buffer.
+    expect(() => resolveBudget(resolveConfig({ contextTokens: 16384 }), 1000000, 8192, 0)).toThrow(/raise contextTokens or lower fallbackBufferTokens/)
   })
   it('accepts an exact one-token working budget', () => {
     const config = resolveConfig({ contextTokens: null, prompts: { fallback: null, guidance: '', reminder: '{n_remaining}/{n_remaining}' } })

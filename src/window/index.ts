@@ -27,7 +27,7 @@ function registerCommand(ctx: Context, config: ResolvedConfig): void {
       if (inv.rawInput.trim()) return { kind: 'error', text: 'Usage: /compact (no arguments)' }
       return inv.agent.runMaintenance(async agentSignal => {
         const signal = AbortSignal.any([inv.signal, agentSignal])
-        const result = resetWindow(ctx, inv.agent.session, config, signal)
+        const result = resetWindow(ctx, inv.agent.session, config, 'command', signal)
         if (result === null) return { kind: 'success', text: 'No conversation in this window yet.' }
         await ctx.sessions.flush(inv.agent.session)
         return { kind: 'success', text: `New context window ${result.windowId} opened.`, sourceEventSeq: result.seq }
@@ -64,7 +64,7 @@ export function registerWindow(ctx: Context, config: ResolvedConfig): void {
     const budget = await measureBudget(ctx, agent.session, config, signal)
     const state = windowState(ctx, agent.session)
     const reset = budget !== null && state.conversationItems > 0 && (state.requested || budget.total >= budget.hard)
-    if (reset) resetWindow(ctx, agent.session, config, signal)
+    if (reset) resetWindow(ctx, agent.session, config, state.requested ? 'requested' : 'limit', signal)
     const decision = await next()
     if (decision.kind === 'reject') return decision
     // Items already in the surface are marked before this request; this step's input from the next one.
@@ -95,7 +95,7 @@ export function registerWindow(ctx: Context, config: ResolvedConfig): void {
     if (header?.provider === route.provider && header.model === route.model && header.maxTokens === route.maxTokens) return route
     const budget = await measureBudget(ctx, agent.session, config, signal, route)
     if (budget !== null && windowState(ctx, agent.session).conversationItems > 0 && budget.total >= budget.hard) {
-      resetWindow(ctx, agent.session, config, signal)
+      resetWindow(ctx, agent.session, config, 'limit', signal)
     }
     return route
   }, { prepend: true })
@@ -103,7 +103,7 @@ export function registerWindow(ctx: Context, config: ResolvedConfig): void {
   ctx.on('agent/request-error', async ({ agent, failure, signal }, next) => {
     if (failure.code === CONTEXT_WINDOW_EXCEEDED_CODE && !signal.aborted) {
       try {
-        resetWindow(ctx, agent.session, config, signal)
+        resetWindow(ctx, agent.session, config, 'limit', signal)
       } catch (error: unknown) {
         ctx.logger.warn('context-window: overflow recovery failed; preserving the original request error', error)
       }

@@ -13,6 +13,7 @@ describe('window plugin in AgentLoop', () => {
       expect(requestText(adapter.requests[0]!)).toContain('First context window id: w0')
       expect(requestText(adapter.requests[1]!)).toContain('Current context window id: w1')
       expect(requestText(adapter.requests[1]!)).not.toContain('Original user request')
+      expect(requestText(adapter.requests[1]!)).not.toContain('ended at the hard limit')
       expect(requestText(adapter.requests[1]!)).not.toContain('A new context window will start')
       await send(agent, 'New user request')
       expect(requestText(adapter.requests[2]!)).toContain('New user request')
@@ -41,6 +42,8 @@ describe('window plugin in AgentLoop', () => {
       expect(requestText(adapter.requests[1]!)).toContain('Save your progress soon.')
       expect(requestText(adapter.requests[1]!)).toContain('The current context window is exhausted')
       expect(requestText(adapter.requests[3]!)).toContain('Current context window id: w1')
+      // A forced switch tells the model the previous checkpoint may be stale.
+      expect(requestText(adapter.requests[3]!)).toMatch(/Previous context window w0 ended at the hard limit; .* Items #\d+–#\d+ are in that window\./)
       const events = agent.session.snapshotEvents()
       expect(events.filter(event => event.type === 'user/message'
         && event.data.source.kind === 'context-window' && event.data.source.event === 'fallback')).toHaveLength(1)

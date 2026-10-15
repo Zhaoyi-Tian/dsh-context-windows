@@ -11,15 +11,18 @@ import type { ResolvedConfig } from '../config.js'
 import { recentNotes } from '../notes/notes.js'
 
 /** Guidance plus the `<context_window>` block for the newest of `ids`. */
-export function openMessage(config: ResolvedConfig, ids: readonly string[], hints: readonly string[]): UserMessage {
+export function openMessage(config: ResolvedConfig, ids: readonly string[], hints: readonly string[], notice?: string): UserMessage {
   return createUserMessage({
-    content: [{ type: 'text', text: [config.prompts.guidance, windowBlock(ids, hints)].filter(Boolean).join('\n') }],
+    content: [{ type: 'text', text: [config.prompts.guidance, windowBlock(ids, hints, notice)].filter(Boolean).join('\n') }],
     source: { kind: 'context-window', windowId: ids.at(-1)!, event: 'open', form: 'instructions' },
   })
 }
 
+/** Why a window closes: the model asked, a token limit forced it, or the user ran `/compact`. */
+export type ResetReason = 'requested' | 'limit' | 'command'
+
 /** Replace everything after the system head; null when the window has no conversation yet. */
-export function resetWindow(ctx: Context, session: Session, config: ResolvedConfig, signal: AbortSignal)
+export function resetWindow(ctx: Context, session: Session, config: ResolvedConfig, reason: ResetReason, signal: AbortSignal)
   : { windowId: string; seq: SessionSeq } | null {
   signal.throwIfAborted()
   const state = windowState(ctx, session)
@@ -33,7 +36,12 @@ export function resetWindow(ctx: Context, session: Session, config: ResolvedConf
     throw new HarnessError('context-window: cannot replace a span with unanswered tool calls', 'CONTEXT_WINDOW_PAIRING')
   }
   const windowId = `w${state.windows.length}`
-  const message = openMessage(config, [...state.windows.map(window => window.id), windowId], recentNotes(ctx, session))
+  const previous = state.windows.at(-1)!.id
+  // A forced switch can land before the model saved a checkpoint for this window.
+  const notice = reason === 'limit'
+    ? `Previous context window ${previous} ended at the hard limit; its last checkpoint may be stale. Items #${start}–#${end} are in that window.`
+    : undefined
+  const message = openMessage(config, [...state.windows.map(window => window.id), windowId], recentNotes(ctx, session), notice)
   const shadowedTokenCount = ctx.tokenMeter.measure(session).nodes
     .filter(node => node.seq !== state.systemHeadSeq)
     .reduce((sum, node) => sum + node.heuristicTokens, 0)
